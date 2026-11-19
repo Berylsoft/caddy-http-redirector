@@ -1,4 +1,4 @@
-module github.com/stackinspector/caddy-http-redirector
+module github.com/Berylsoft/caddy-http-redirector
 
 go 1.26.0
 

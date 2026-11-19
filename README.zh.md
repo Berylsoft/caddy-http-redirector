@@ -22,13 +22,13 @@
 使用 [xcaddy](https://github.com/caddyserver/xcaddy)：
 
 ```sh
-xcaddy build --with github.com/stackinspector/caddy-http-redirector
+xcaddy build --with github.com/Berylsoft/caddy-http-redirector
 ```
 
 在本仓库内构建（不依赖远程模块）时，用 `=` 指向当前目录：
 
 ```sh
-xcaddy build --with github.com/stackinspector/caddy-http-redirector=.
+xcaddy build --with github.com/Berylsoft/caddy-http-redirector=.
 ```
 
 本仓库也带有一个便于本地测试的入口 `cmd/caddy`：

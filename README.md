@@ -22,13 +22,13 @@ A Caddy v2 HTTP handler module that redirects `/{scope}/{key}` requests to links
 With [xcaddy](https://github.com/caddyserver/xcaddy):
 
 ```sh
-xcaddy build --with github.com/stackinspector/caddy-http-redirector
+xcaddy build --with github.com/Berylsoft/caddy-http-redirector
 ```
 
 To build from this checkout without fetching the module remotely, use `=` to point at the current directory:
 
 ```sh
-xcaddy build --with github.com/stackinspector/caddy-http-redirector=.
+xcaddy build --with github.com/Berylsoft/caddy-http-redirector=.
 ```
 
 This repository also includes a local test entry point in `cmd/caddy`:
