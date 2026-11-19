@@ -1,0 +1,26 @@
+{
+	log redirector {
+		output file ./redirector.log
+		format redirector
+		include http.handlers.redirector
+	}
+	log default {
+		exclude http.handlers.redirector
+	}
+}
+
+:8080 {
+	redirector {
+		scope rust ./example-redirect
+		req_id_header X-Request-ID
+	}
+}
+
+:8081 {
+	redirector {
+		scope lookup ./example-lookup
+		req_id_header X-Request-ID
+		return_value
+		no_fill_https
+	}
+}
