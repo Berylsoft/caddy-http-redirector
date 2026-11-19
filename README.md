@@ -1,42 +1,44 @@
 # Caddy HTTP Redirector
 
-一个 Caddy v2 HTTP handler 模块，根据每个 scope 的 key/link 表把 `/{scope}/{key}` 请求重定向到对应链接。
+[中文](README.zh.md) | **English**
 
-- 模块 ID：`http.handlers.redirector`
-- Caddyfile 指令：`redirector`
-- 目标版本：Caddy v2.11.9，Go 1.26+
+A Caddy v2 HTTP handler module that redirects `/{scope}/{key}` requests to links from per-scope key/link tables.
 
-## 功能
+- Module ID: `http.handlers.redirector`
+- Caddyfile directive: `redirector`
+- Target: Caddy v2.11.9, Go 1.26+
 
-- 按 scope 加载 key/link 表，支持本地文件或 `http(s)://` URL。
-- 命中返回 `307` 和 `Location`；也可开启 `return_value` 直接返回映射值。
-- 未命中返回 `404`，非 GET 请求返回 `405`。
-- 输出逐行 JSON 事件日志（`Init`、`Request`）。
-- 日志可写入 Caddy 管理的独立文件，保持每行一个完整 JSON 事件。
-- 配置在 Caddy Provision 时加载；不提供通过 HTTP 请求触发更新的接口。
+## Features
 
-## 构建
+- Loads a key/link table per scope from a local file or an `http(s)://` URL.
+- Returns `307` and `Location` on a hit; `return_value` can return the mapped value directly instead.
+- Returns `404` on a miss and `405` for non-GET requests.
+- Emits line-delimited JSON event logs (`Init`, `Request`).
+- Supports a dedicated Caddy-managed log file with one complete JSON event per line.
+- Loads configuration when Caddy provisions the module; it does not expose a request-triggered update endpoint.
 
-使用 [xcaddy](https://github.com/caddyserver/xcaddy)：
+## Build
+
+With [xcaddy](https://github.com/caddyserver/xcaddy):
 
 ```sh
 xcaddy build --with github.com/stackinspector/caddy-http-redirector
 ```
 
-在本仓库内构建（不依赖远程模块）时，用 `=` 指向当前目录：
+To build from this checkout without fetching the module remotely, use `=` to point at the current directory:
 
 ```sh
 xcaddy build --with github.com/stackinspector/caddy-http-redirector=.
 ```
 
-本仓库也带有一个便于本地测试的入口 `cmd/caddy`：
+This repository also includes a local test entry point in `cmd/caddy`:
 
 ```sh
 go build -o caddy ./cmd/caddy
 ./caddy run --config Caddyfile.example --adapter caddyfile
 ```
 
-## Caddyfile 语法
+## Caddyfile syntax
 
 ```caddyfile
 redirector [<matcher>] {
@@ -47,14 +49,14 @@ redirector [<matcher>] {
 }
 ```
 
-- `scope`：可重复。`<name>` 是 URL 中的第一段路径；`<source>` 是本地文件路径或 `http(s)://` URL。配置在 Caddy 加载配置时读取一次。
-- `req_id_header`：可选。指定一个请求头名称，其值会写入请求日志的 `req_id` 字段。
-- `return_value`：可选。命中时返回映射值本身（`200`，`text/plain; charset=utf-8`），而不是 `307` 重定向。适合做简单的查询/映射服务。
-- `no_fill_https`：可选。默认情况下，表中的链接如果不以 `http://` 或 `https://` 开头，会自动补上 `https://`。开启后不补。
+- `scope`: repeatable. `<name>` is the first path segment of the URL; `<source>` is a local file path or an `http(s)://` URL. The config is read once when Caddy loads the configuration.
+- `req_id_header`: optional. Names a request header whose value is recorded in the `req_id` field of request log events.
+- `return_value`: optional. On a hit, returns the mapped value itself (`200`, `text/plain; charset=utf-8`) instead of a `307` redirect. Useful for simple lookup/mapping services.
+- `no_fill_https`: optional. By default, a link that does not start with `http://` or `https://` gets an `https://` prefix. Enabling this disables that behavior.
 
-`redirector` 默认排在 `respond` 之前。它在处理请求后直接响应，不会调用后续 handler；因此通常放在站点根部，或配合 matcher / `handle` 使用。
+`redirector` is ordered before `respond` by default. It responds directly and does not call the next handler; place it at the site root or use a matcher / `handle`.
 
-### 重定向服务
+### Redirect service
 
 ```caddyfile
 :8080 {
@@ -71,7 +73,7 @@ curl -i http://localhost:8080/links/home
 # Location: https://example.com/
 ```
 
-### 查询/映射服务
+### Lookup/mapping service
 
 ```caddyfile
 :8081 {
@@ -88,9 +90,9 @@ curl http://localhost:8081/lookup/alice@example.com
 # Alice
 ```
 
-### 表文件格式
+### Table file format
 
-每行一个 `<key> <target>`，以空白分隔，空行会被忽略：
+Each line contains one `<key> <target>` pair separated by whitespace; blank lines are ignored:
 
 ```text
 home            example.com/
@@ -99,19 +101,19 @@ http-example    http://example.com/http
 https-example   https://example.com/https
 ```
 
-- 未带 scheme 的 target 默认补 `https://`；`http://` 和 `https://` 开头的不变。也可以开启 `no_fill_https` 完全禁用补全。
-- 重复 key 会导致 Caddy 加载配置失败。
-- 单行不是恰好两个字段、或配置不是合法 UTF-8，也会导致加载失败。
-- 远程配置源必须返回 `200`；读取上限为 10 MiB，HTTP 超时为 30 秒。
-- 相对路径相对于 **Caddy 进程的工作目录**，不是 Caddyfile 所在目录。生产环境建议使用绝对路径。
+- Targets without a scheme get an `https://` prefix; `http://` and `https://` targets are left unchanged. `no_fill_https` disables prefixing entirely.
+- Duplicate keys cause Caddy configuration loading to fail.
+- A line that does not have exactly two fields, or a config that is not valid UTF-8, also causes loading to fail.
+- Remote config sources must return `200`; reads are limited to 10 MiB and the HTTP timeout is 30 seconds.
+- Relative paths resolve relative to the **Caddy process working directory**, not the Caddyfile's directory. Absolute paths are recommended in production.
 
-## 日志
+## Logging
 
-日志采用每行一个 JSON 事件的形式，共两种事件：`Init`（配置加载时）和 `Request`（每个成功解析出 `{scope}/{key}` 的 GET 请求）。未解析出两段路径的请求（如 `/`）和非 GET 请求不会写请求日志。
+Logs consist of one JSON event per line. There are two event types: `Init` (when the configuration is loaded) and `Request` (for each GET request that yields `{scope}/{key}`). Requests without two path segments (e.g. `/`) and non-GET requests do not produce request log entries.
 
-### 独立日志文件（推荐）
+### Dedicated log file (recommended)
 
-Caddy 的 logging app 支持命名日志、文件输出和按 logger 名称过滤。本模块注册了一个只输出消息本身的 encoder（`format redirector`），因此可以把日志写进独立文件，同时保持每行一个完整 JSON 事件，并由 Caddy 负责文件轮转：
+Caddy's logging app supports named logs, file output, and filtering by logger name. This module registers an encoder that writes only the message itself (`format redirector`), so events can go to a dedicated file as one complete JSON event per line while Caddy handles file rotation:
 
 ```caddyfile
 {
@@ -126,50 +128,50 @@ Caddy 的 logging app 支持命名日志、文件输出和按 logger 名称过�
 }
 ```
 
-- `include http.handlers.redirector` 只让本模块的日志进入该文件。
-- `log default { exclude ... }` 避免同样的日志又进入默认日志。
-- 文件 writer 支持 Caddy 的 `roll_size`、`roll_keep` 等选项，可按需添加。
+- `include http.handlers.redirector` sends only this module's logs to the file.
+- `log default { exclude ... }` prevents the same events from also going to the default log.
+- The file writer supports Caddy's `roll_size`, `roll_keep`, and similar options as needed.
 
-### 回退到 Caddy 日志
+### Fallback to Caddy's log
 
-如果不配置上面的命名日志，`Init` 和 `Request` 事件会写入 Caddy 的默认日志，logger 名称为 `http.handlers.redirector`。此时 Caddy 会在事件 JSON 外面再套一层自己的 JSON 信封（例如 `level`、`ts`、`msg`）。如果需要每行一个完整事件，请使用上面的独立日志配置；如果需要写到 stdout，把命名 log 的 `output` 改成 `stdout` 即可。
+If the named log above is not configured, `Init` and `Request` events go to Caddy's default log with the logger name `http.handlers.redirector`. In that case Caddy wraps the event JSON in its own JSON envelope (for example `level`, `ts`, `msg`). For one complete event per line, use the dedicated log configuration; to write to stdout, change the named log's `output` to `stdout`.
 
-### 事件示例
+### Event examples
 
 ```json
 {"time":1795069785320,"event":{"type":"Init","data":{"ver":"0.1.0","state":{"links":{"url":"./example-redirect","map":{"home":"https://example.com/"}}},"req_id_header":"X-Request-ID"}}}
 {"time":1795069788245,"event":{"type":"Request","data":{"from":["203.0.113.7"," 10.0.0.2","127.0.0.1:55825"],"req_id":"abc-123","ua":"curl/8.7.1","scope":"links","key":"home","inner":{"type":"Get","data":{"hit":true}}}}}
 ```
 
-- `time`：Unix 毫秒时间戳。
-- `from`：`X-Forwarded-For` 的各个条目（保留条目中的空格）后接直连对端的 `host:port`。
-- `req_id`：`req_id_header` 指定头的值；未配置或请求未携带时为 `null`。
-- `ua`：`User-Agent`；未携带时为 `null`。
-- `hit`：是否在对应 scope 的表中找到 key。
+- `time`: Unix timestamp in milliseconds.
+- `from`: each `X-Forwarded-For` entry (spaces within entries are preserved), followed by the immediate peer's `host:port`.
+- `req_id`: value of the header named by `req_id_header`; `null` if not configured or absent from the request.
+- `ua`: `User-Agent`; `null` if absent.
+- `hit`: whether the key was found in the scope's table.
 
-## 行为细节
+## Behavior details
 
-- 只接受 `GET`。其他方法（包括 `HEAD`）返回 `405`。
-- 路径按 `/{scope}/{key}` 解析；多余路径段被忽略。例如 `/links/home/extra` 使用 `scope=links`、`key=home`。
-- 命中返回 `307` 和 `Location`；未命中返回 `404`。
-- `X-Forwarded-For`、`User-Agent` 或配置的请求 ID 头包含非可见 ASCII 字节时返回 `400`。
-- 该 handler 对进入它的所有请求都会直接响应，不会继续调用后续 handler。
-- 配置只在 Caddy 加载/重载配置时读取。更新表文件或远程配置后需要重载；由于表内容不在 Caddyfile 适配出的 JSON 中，Caddy 通常认为配置“未变化”，因此需要加 `--force`：
+- Only `GET` is accepted. Other methods (including `HEAD`) return `405`.
+- Paths are parsed as `/{scope}/{key}`; extra path segments are ignored. For example, `/links/home/extra` uses `scope=links` and `key=home`.
+- Hits return `307` and `Location`; misses return `404`.
+- Returns `400` if `X-Forwarded-For`, `User-Agent`, or the configured request ID header contains bytes that are not visible ASCII.
+- The handler responds directly to every request that reaches it and does not call the next handler.
+- Configuration is read only when Caddy loads or reloads configuration. After changing a table file or remote config, reload Caddy. Because table contents are not part of the JSON adapted from the Caddyfile, Caddy usually considers the configuration unchanged, so `--force` is required:
 
   ```sh
   caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --force
   ```
 
-  本模块不提供通过请求触发配置更新的接口；更新只能由有权限 reload Caddy 的人完成。
+  This module does not provide a request-triggered config update endpoint; updates require someone with permission to reload Caddy.
 
-## 测试
+## Testing
 
 ```sh
 go test ./...
 ```
 
-测试覆盖表解析、路径解析、请求处理、日志事件格式、Caddyfile 解析与适配、远程/本地配置加载，以及自定义 raw encoder 的输出。
+Tests cover table parsing, path parsing, request handling, log event formatting, Caddyfile parsing and adaptation, remote/local config loading, and the custom raw encoder.
 
-## 许可证
+## License
 
-MPL-2.0，见 [LICENSE](LICENSE)。
+MPL-2.0. See [LICENSE](LICENSE).
