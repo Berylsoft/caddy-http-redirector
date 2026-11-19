@@ -78,7 +78,7 @@ func TestCaddyfileAdapt(t *testing.T) {
 
 	cfg, err := adaptCaddyfile(t, `:8080 {
 		redirector {
-			scope rust ./example-redirect
+			scope links ./example-redirect
 			scope lookup https://example.com/lookup
 			req_id_header X-Request-ID
 			return_value
@@ -93,7 +93,7 @@ func TestCaddyfileAdapt(t *testing.T) {
 	if len(handler.Scopes) != 2 {
 		t.Fatalf("got %d scopes, want 2", len(handler.Scopes))
 	}
-	if handler.Scopes[0] != (ScopeConfig{Name: "rust", Source: "./example-redirect"}) {
+	if handler.Scopes[0] != (ScopeConfig{Name: "links", Source: "./example-redirect"}) {
 		t.Errorf("unexpected first scope: %+v", handler.Scopes[0])
 	}
 	if handler.Scopes[1] != (ScopeConfig{Name: "lookup", Source: "https://example.com/lookup"}) {
@@ -109,7 +109,7 @@ func TestCaddyfileAdaptWithMatcher(t *testing.T) {
 
 	cfg, err := adaptCaddyfile(t, `:8080 {
 		redirector /r/* {
-			scope rust ./example-redirect
+			scope links ./example-redirect
 		}
 	}`)
 	if err != nil {
@@ -137,7 +137,7 @@ func TestCaddyfileAdaptDedicatedLog(t *testing.T) {
 
 	:8080 {
 		redirector {
-			scope rust ./example-redirect
+			scope links ./example-redirect
 		}
 	}`)
 	if err != nil {

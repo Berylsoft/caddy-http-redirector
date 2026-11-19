@@ -1,21 +1,19 @@
 # Caddy HTTP Redirector
 
-[`http-redirector`](https://github.com/stackinspector/http-redirector) 的 Caddy v2 移植版。它是一个 HTTP handler 模块（模块 ID：`http.handlers.redirector`，Caddyfile 指令：`redirector`），根据每个 scope 的 key/link 表把 `/{scope}/{key}` 请求重定向到对应链接。
+一个 Caddy v2 HTTP handler 模块，根据每个 scope 的 key/link 表把 `/{scope}/{key}` 请求重定向到对应链接。
 
-当前版本针对 **Caddy v2.11.9** 及 Go 1.26+ 构建。
+- 模块 ID：`http.handlers.redirector`
+- Caddyfile 指令：`redirector`
+- 目标版本：Caddy v2.11.9，Go 1.26+
 
-## 与 Rust 原版的对应关系
+## 功能
 
-| Rust 原版 | 本模块 |
-| --- | --- |
-| 独立进程、`-p/--port` | Caddy site address（如 `:8080`） |
-| `-c/--configs "scope,url;..."` | 可重复的 `scope <name> <source>` 子指令 |
-| `-l/--log-path` | Caddy 的全局 `log` 块（`output file ...` + `format redirector`） |
-| `-h/--req-id-header` | `req_id_header <header>` |
-| `-v/--return-value` | `return_value` |
-| `-f/--no-fill-https` | `no_fill_https` |
-| `-k/--update-key`、`-u/--allow-update` | **已移除**；更新配置请 reload Caddy |
-| 通过 `/{update_key}/{scope}` 触发更新 | **已移除**，无更新端点 |
+- 按 scope 加载 key/link 表，支持本地文件或 `http(s)://` URL。
+- 命中返回 `307` 和 `Location`；也可开启 `return_value` 直接返回映射值。
+- 未命中返回 `404`，非 GET 请求返回 `405`。
+- 输出逐行 JSON 事件日志（`Init`、`Request`）。
+- 日志可写入 Caddy 管理的独立文件，保持每行一个完整 JSON 事件。
+- 配置在 Caddy Provision 时加载；不提供通过 HTTP 请求触发更新的接口。
 
 ## 构建
 
@@ -61,16 +59,16 @@ redirector [<matcher>] {
 ```caddyfile
 :8080 {
 	redirector {
-		scope rust ./example-redirect
+		scope links ./example-redirect
 		req_id_header X-Request-ID
 	}
 }
 ```
 
 ```sh
-curl -i http://localhost:8080/rust/rust
+curl -i http://localhost:8080/links/home
 # HTTP/1.1 307 Temporary Redirect
-# Location: https://www.rust-lang.org/
+# Location: https://example.com/
 ```
 
 ### 查询/映射服务
@@ -95,10 +93,10 @@ curl http://localhost:8081/lookup/alice@example.com
 每行一个 `<key> <target>`，以空白分隔，空行会被忽略：
 
 ```text
-rust            www.rust-lang.org/
-crates          crates.io/
-http-example    http://example.com/
-https-example   https://example.com/
+home            example.com/
+docs            docs.example.com/
+http-example    http://example.com/http
+https-example   https://example.com/https
 ```
 
 - 未带 scheme 的 target 默认补 `https://`；`http://` 和 `https://` 开头的不变。也可以开启 `no_fill_https` 完全禁用补全。
@@ -109,11 +107,11 @@ https-example   https://example.com/
 
 ## 日志
 
-日志格式与 Rust 原版保持一致：每行一个 JSON 事件，共两种事件：`Init`（配置加载时）和 `Request`（每个成功解析出 `{scope}/{key}` 的 GET 请求）。未解析出两段路径的请求（如 `/`）和非 GET 请求不会写请求日志，与原版一致。
+日志采用每行一个 JSON 事件的形式，共两种事件：`Init`（配置加载时）和 `Request`（每个成功解析出 `{scope}/{key}` 的 GET 请求）。未解析出两段路径的请求（如 `/`）和非 GET 请求不会写请求日志。
 
 ### 独立日志文件（推荐）
 
-Caddy 的 logging app 支持命名日志、文件输出和按 logger 名称过滤。本模块额外注册了一个只输出消息本身的 encoder（`format redirector`），因此可以把日志写进独立文件，同时保持原版的逐行 JSON 格式，并由 Caddy 负责文件轮转：
+Caddy 的 logging app 支持命名日志、文件输出和按 logger 名称过滤。本模块注册了一个只输出消息本身的 encoder（`format redirector`），因此可以把日志写进独立文件，同时保持每行一个完整 JSON 事件，并由 Caddy 负责文件轮转：
 
 ```caddyfile
 {
@@ -130,41 +128,39 @@ Caddy 的 logging app 支持命名日志、文件输出和按 logger 名称过�
 
 - `include http.handlers.redirector` 只让本模块的日志进入该文件。
 - `log default { exclude ... }` 避免同样的日志又进入默认日志。
-- 不想让日志进入默认日志时，这一条是必要的。
 - 文件 writer 支持 Caddy 的 `roll_size`、`roll_keep` 等选项，可按需添加。
 
 ### 回退到 Caddy 日志
 
-如果不配置上面的命名日志，`Init` 和 `Request` 事件会写入 Caddy 的默认日志，logger 名称为 `http.handlers.redirector`。此时 Caddy 会在事件 JSON 外面再套一层自己的 JSON 信封（例如 `level`、`ts`、`msg`）。如果需要严格保持原版格式，请使用上面的独立日志配置；如果需要写到 stdout，把命名 log 的 `output` 改成 `stdout` 即可。
+如果不配置上面的命名日志，`Init` 和 `Request` 事件会写入 Caddy 的默认日志，logger 名称为 `http.handlers.redirector`。此时 Caddy 会在事件 JSON 外面再套一层自己的 JSON 信封（例如 `level`、`ts`、`msg`）。如果需要每行一个完整事件，请使用上面的独立日志配置；如果需要写到 stdout，把命名 log 的 `output` 改成 `stdout` 即可。
 
 ### 事件示例
 
 ```json
-{"time":1795069785320,"event":{"type":"Init","data":{"ver":"0.1.0","state":{"rust":{"url":"./example-redirect","map":{"rust":"https://www.rust-lang.org/"}}},"req_id_header":"X-Request-ID","update_key":null,"allow_update":false}}}
-{"time":1795069788245,"event":{"type":"Request","data":{"from":["203.0.113.7"," 10.0.0.2","127.0.0.1:55825"],"req_id":"abc-123","ua":"curl/8.7.1","scope":"rust","key":"trpl","inner":{"type":"Get","data":{"hit":true}}}}}
+{"time":1795069785320,"event":{"type":"Init","data":{"ver":"0.1.0","state":{"links":{"url":"./example-redirect","map":{"home":"https://example.com/"}}},"req_id_header":"X-Request-ID"}}}
+{"time":1795069788245,"event":{"type":"Request","data":{"from":["203.0.113.7"," 10.0.0.2","127.0.0.1:55825"],"req_id":"abc-123","ua":"curl/8.7.1","scope":"links","key":"home","inner":{"type":"Get","data":{"hit":true}}}}}
 ```
 
 - `time`：Unix 毫秒时间戳。
-- `from`：`X-Forwarded-For` 的各个条目（按原样、保留空格）后接直连对端的 `host:port`。
+- `from`：`X-Forwarded-For` 的各个条目（保留条目中的空格）后接直连对端的 `host:port`。
 - `req_id`：`req_id_header` 指定头的值；未配置或请求未携带时为 `null`。
 - `ua`：`User-Agent`；未携带时为 `null`。
 - `hit`：是否在对应 scope 的表中找到 key。
-- `update_key` / `allow_update`：为了兼容原版日志 schema 保留，但固定为 `null` / `false`；更新功能已移除。
 
 ## 行为细节
 
-- 只接受 `GET`。其他方法（包括 `HEAD`）返回 `405`，与原版代码一致。
-- 路径按 `/{scope}/{key}` 解析；多余路径段被忽略。例如 `/rust/foo/bar` 使用 `scope=rust`、`key=foo`。
+- 只接受 `GET`。其他方法（包括 `HEAD`）返回 `405`。
+- 路径按 `/{scope}/{key}` 解析；多余路径段被忽略。例如 `/links/home/extra` 使用 `scope=links`、`key=home`。
 - 命中返回 `307` 和 `Location`；未命中返回 `404`。
 - `X-Forwarded-For`、`User-Agent` 或配置的请求 ID 头包含非可见 ASCII 字节时返回 `400`。
-- 该 handler 对进入它的所有请求都是终结性的，不会继续调用后续 handler。
+- 该 handler 对进入它的所有请求都会直接响应，不会继续调用后续 handler。
 - 配置只在 Caddy 加载/重载配置时读取。更新表文件或远程配置后需要重载；由于表内容不在 Caddyfile 适配出的 JSON 中，Caddy 通常认为配置“未变化”，因此需要加 `--force`：
 
   ```sh
   caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --force
   ```
 
-  这也是移除原版 `/{update_key}/{scope}` 更新端点后的替代方式：不再允许任意请求触发重新抓取，更新只能由有权限 reload Caddy 的人完成。
+  本模块不提供通过请求触发配置更新的接口；更新只能由有权限 reload Caddy 的人完成。
 
 ## 测试
 
@@ -176,4 +172,4 @@ go test ./...
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。原项目版权归 stackinspector 所有。
+MPL-2.0，见 [LICENSE](LICENSE)。

@@ -28,10 +28,6 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 //	    return_value
 //	    no_fill_https
 //	}
-//
-// Every scope line is equivalent to one entry in the old "-c" argument.
-// The listening address is the site address instead of the old "-p" flag.
-// The old update flags (-k/--update-key and -u/--allow-update) are gone.
 func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 	d.Next() // consume directive name
 

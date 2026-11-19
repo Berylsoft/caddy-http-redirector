@@ -28,13 +28,13 @@ func TestParseTable(t *testing.T) {
 		{
 			name: "bare targets get https",
 			content: `
-rust    www.rust-lang.org/
+home    example.com/
 
-trpl    doc.rust-lang.org/stable/book/
+docs    docs.example.com/
 `,
 			want: map[string]string{
-				"rust": "https://www.rust-lang.org/",
-				"trpl": "https://doc.rust-lang.org/stable/book/",
+				"home": "https://example.com/",
+				"docs": "https://docs.example.com/",
 			},
 		},
 		{
@@ -118,12 +118,12 @@ func TestSplitScopeKey(t *testing.T) {
 		key   string
 		ok    bool
 	}{
-		{path: "/rust/foo", scope: "rust", key: "foo", ok: true},
-		{path: "/rust/foo/bar", scope: "rust", key: "foo", ok: true},
-		{path: "/rust/", scope: "rust", key: "", ok: true},
+		{path: "/s/foo", scope: "s", key: "foo", ok: true},
+		{path: "/s/foo/bar", scope: "s", key: "foo", ok: true},
+		{path: "/s/", scope: "s", key: "", ok: true},
 		{path: "//foo", scope: "", key: "foo", ok: true},
 		{path: "/a//b", scope: "a", key: "", ok: true},
-		{path: "/rust", ok: false},
+		{path: "/s", ok: false},
 		{path: "/", ok: false},
 		{path: "", ok: false},
 	}
@@ -219,7 +219,7 @@ func TestLogEventFormat(t *testing.T) {
 		},
 	}
 
-	wantInit := `{"time":123,"event":{"type":"Init","data":{"ver":"0.1.0","state":{"s":{"url":"./table","map":{"k":"https://example.com/<x>&y"}}},"req_id_header":"X-Request-ID","update_key":null,"allow_update":false}}}`
+	wantInit := `{"time":123,"event":{"type":"Init","data":{"ver":"0.1.0","state":{"s":{"url":"./table","map":{"k":"https://example.com/<x>&y"}}},"req_id_header":"X-Request-ID"}}}`
 	if got := h.initEventLineAt(123); got != wantInit {
 		t.Fatalf("Init event mismatch:\n got: %s\nwant: %s", got, wantInit)
 	}
@@ -459,12 +459,6 @@ func TestServeHTTP(t *testing.T) {
 			wantBody:    "https://example.com/",
 			wantCT:      "text/plain; charset=utf-8",
 		},
-		{
-			name:       "update endpoint is gone",
-			method:     http.MethodGet,
-			path:       "/__update__/s",
-			wantStatus: http.StatusNotFound,
-		},
 	}
 
 	for _, tc := range tests {
@@ -569,7 +563,7 @@ func TestUnmarshalCaddyfile(t *testing.T) {
 
 	t.Run("full block", func(t *testing.T) {
 		d := caddyfile.NewTestDispenser(`redirector {
-			scope rust ./example-redirect
+			scope links ./example-redirect
 			scope lookup https://example.com/lookup
 			req_id_header X-Request-ID
 			return_value
@@ -582,7 +576,7 @@ func TestUnmarshalCaddyfile(t *testing.T) {
 		if len(h.Scopes) != 2 {
 			t.Fatalf("got %d scopes, want 2", len(h.Scopes))
 		}
-		if h.Scopes[0] != (ScopeConfig{Name: "rust", Source: "./example-redirect"}) {
+		if h.Scopes[0] != (ScopeConfig{Name: "links", Source: "./example-redirect"}) {
 			t.Errorf("unexpected first scope: %+v", h.Scopes[0])
 		}
 		if h.Scopes[1] != (ScopeConfig{Name: "lookup", Source: "https://example.com/lookup"}) {

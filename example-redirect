@@ -1,13 +1,8 @@
-rust            www.rust-lang.org/
-crates          crates.io/
-docgen          docs.rs/
-rust-github     github.com/rust-lang/
+home            example.com/
+docs            docs.example.com/
+api             api.example.com/v1/
+status          status.example.com/
+blog            blog.example.com/
 
-trpl            doc.rust-lang.org/stable/book/
-trpl-cn         kaisery.github.io/trpl-zh-cn/
-rust-cookbook   rust-lang-nursery.github.io/rust-cookbook/
-rust-by-example doc.rust-lang.org/rust-by-example/
-cargo-book      doc.rust-lang.org/cargo/
-
-tokio-guide     tokio.rs/tokio/tutorial
-actix-docs      actix.rs/docs/
+http-example    http://example.com/http
+https-example   https://example.com/https

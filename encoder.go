@@ -14,9 +14,8 @@ func init() {
 
 // RawEncoder is a Caddy log encoder that writes only the log message,
 // followed by a newline. The redirector logs complete JSON event objects as
-// its messages, so this encoder preserves the original one-line-per-event
-// format while still letting Caddy own the log destination, rotation, and
-// filtering.
+// its messages, so this encoder keeps one event per line while still letting
+// Caddy own the log destination, rotation, and filtering.
 //
 // It is only needed when routing redirector events through a named Caddy
 // log. Without it, Caddy's own encoder wraps the event JSON inside its usual

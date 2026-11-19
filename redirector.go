@@ -1,7 +1,6 @@
 // Package redirector implements a Caddy HTTP handler that redirects
 // requests of the form /{scope}/{key} according to per-scope key/link
-// tables. It is a port of the standalone Rust project
-// https://github.com/stackinspector/http-redirector.
+// tables.
 package redirector
 
 import (
@@ -141,9 +140,7 @@ func (h *Handler) provision(logger *zap.Logger, client *http.Client) error {
 	}
 	h.state = state
 
-	// This mirrors the Rust implementation's Init event. Update-related
-	// fields are kept (always null/false) so log consumers keep seeing the
-	// same event shape even though updating is no longer supported.
+	// Emit the Init event once every scope has been loaded.
 	h.logger.Info(h.initEventLine())
 
 	return nil
@@ -215,8 +212,8 @@ func parseTable(content string, noFillHTTPS bool) (map[string]string, error) {
 	return table, nil
 }
 
-// ServeHTTP implements caddyhttp.MiddlewareHandler. It is terminal for
-// every request that reaches it, just like the standalone server was.
+// ServeHTTP implements caddyhttp.MiddlewareHandler. It responds to every
+// request that reaches it and does not call the next handler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, _ caddyhttp.Handler) error {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -278,8 +275,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, _ caddyhttp.
 }
 
 // splitScopeKey extracts the first two path segments after the leading
-// slash. Extra segments and query strings are ignored, matching the Rust
-// implementation.
+// slash. Extra segments and query strings are ignored.
 func splitScopeKey(path string) (scope, key string, ok bool) {
 	parts := strings.SplitN(path, "/", 4)
 	if len(parts) < 3 {
@@ -289,8 +285,8 @@ func splitScopeKey(path string) (scope, key string, ok bool) {
 }
 
 // nullStringHeader returns the first value of the named header. The bool is
-// false if the value contains bytes that are not visible ASCII, matching the
-// Rust implementation's HeaderValue::to_str() check and its 400 response.
+// false if the value contains bytes that are not visible ASCII; callers
+// respond with 400 in that case.
 func nullStringHeader(r *http.Request, name string) (*string, bool) {
 	values := r.Header.Values(name)
 	if len(values) == 0 {
@@ -308,8 +304,7 @@ func nullStringHeader(r *http.Request, name string) (*string, bool) {
 }
 
 // remoteFrom builds the "from" field: every X-Forwarded-For entry in order,
-// followed by the address of the immediate peer. The peer address keeps its
-// port, matching Rust's SocketAddr display format.
+// followed by the address of the immediate peer, including its port.
 func remoteFrom(xff *string, remoteAddr string) []string {
 	from := make([]string, 0, 3)
 	if xff != nil {
@@ -319,8 +314,7 @@ func remoteFrom(xff *string, remoteAddr string) []string {
 	return from
 }
 
-// Log event types. Field order mirrors the serde struct order of the Rust
-// implementation, and fields are intentionally not omitempty.
+// Log event types. Fields without omitempty are always emitted.
 
 type logEvent struct {
 	Time  int64    `json:"time"`
@@ -336,8 +330,6 @@ type initEventData struct {
 	Ver         string                `json:"ver"`
 	State       map[string]scopeState `json:"state"`
 	ReqIDHeader *string               `json:"req_id_header"`
-	UpdateKey   *string               `json:"update_key"`
-	AllowUpdate bool                  `json:"allow_update"`
 }
 
 type requestEventData struct {
@@ -370,8 +362,6 @@ func (h *Handler) initEventLineAt(now int64) string {
 				Ver:         moduleVersion,
 				State:       h.state,
 				ReqIDHeader: reqIDHeader,
-				UpdateKey:   nil,
-				AllowUpdate: false,
 			},
 		},
 	})
@@ -394,9 +384,9 @@ func (h *Handler) requestEventLine(now int64, xff, reqID, ua *string, remoteAddr
 	})
 }
 
-// marshalEvent encodes one log event as compact JSON without HTML escaping,
-// matching serde_json's output. encoding/json's trailing newline is removed
-// because the log writers add their own line endings.
+// marshalEvent encodes one log event as compact JSON without HTML escaping.
+// encoding/json's trailing newline is removed because the log writers add
+// their own line endings.
 func marshalEvent(event logEvent) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)

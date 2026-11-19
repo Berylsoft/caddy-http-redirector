@@ -11,7 +11,7 @@
 
 :8080 {
 	redirector {
-		scope rust ./example-redirect
+		scope links ./example-redirect
 		req_id_header X-Request-ID
 	}
 }
